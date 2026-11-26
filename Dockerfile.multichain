@@ -1,0 +1,30 @@
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
+
+# 1) INSTALAR dependencias del sistema
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        wget \
+        curl \
+        python3 \
+        jq \
+        ca-certificates \
+        netcat-openbsd \
+        procps \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+ARG MULTICHAIN_VERSION=2.3.2
+
+# 1) INSTALAR Multichain 2.3.2 (binarios en /usr/local/bin)
+RUN set -eux; \
+    wget -q "https://www.multichain.com/download/multichain-${MULTICHAIN_VERSION}.tar.gz" -O /tmp/multichain.tar.gz; \
+    tar -xzf /tmp/multichain.tar.gz -C /tmp; \
+    install -m 0755 "/tmp/multichain-${MULTICHAIN_VERSION}/multichaind"     /usr/local/bin/multichaind; \
+    install -m 0755 "/tmp/multichain-${MULTICHAIN_VERSION}/multichain-cli" /usr/local/bin/multichain-cli; \
+    install -m 0755 "/tmp/multichain-${MULTICHAIN_VERSION}/multichain-util" /usr/local/bin/multichain-util; \
+    rm -rf "/tmp/multichain-${MULTICHAIN_VERSION}" /tmp/multichain.tar.gz; \
+    ldd /usr/local/bin/multichaind | grep -i "not found" && exit 1 || true
+
+WORKDIR /root

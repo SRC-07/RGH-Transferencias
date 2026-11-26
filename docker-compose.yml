@@ -1,0 +1,154 @@
+version: '3.8'
+
+services:
+  multichain-node1:
+    build:
+      context: .
+      dockerfile: Dockerfile.multichain
+    container_name: multichain-node1
+    hostname: node1
+    networks:
+      - multichain-net
+    ports:
+      - "9440:9440"
+      - "9540:9540"
+    volumes:
+      - ./data/node1:/root/.multichain
+    command: >
+      sh -c "
+      if [ ! -d /root/.multichain/arbol-chain ]; then
+        multichain-util create arbol-chain -defaultkeypoolsize=10000 -miningrequirespeers=false -anyonecanconnect=true -anyonecanmine=true -anyonecanreceive=true -anyonecansend=true;
+      fi;
+      multichaind arbol-chain -daemon=0 -port=9440 -rpcport=9540 -rpcallowip=0.0.0.0/0 -rpcuser=multichainrpc -rpcpassword=SecurePass123! -printtoconsole=1
+      "
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "multichain-cli", "arbol-chain", "-rpcuser=multichainrpc", "-rpcpassword=SecurePass123!", "-rpcport=9540", "getinfo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  multichain-node2:
+    build:
+      context: .
+      dockerfile: Dockerfile.multichain
+    container_name: multichain-node2
+    hostname: node2
+    networks:
+      - multichain-net
+    ports:
+      - "9441:9441"
+      - "9541:9541"
+    volumes:
+      - ./data/node2:/root/.multichain
+    depends_on:
+      multichain-node1:
+        condition: service_healthy
+    command: >
+      sh -c "
+      sleep 5;
+      multichaind arbol-chain@multichain-node1:9440 -daemon=0 -port=9441 -rpcport=9541 -rpcallowip=0.0.0.0/0 -rpcuser=multichainrpc -rpcpassword=SecurePass123! -printtoconsole=1
+      "
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "multichain-cli", "arbol-chain", "-rpcuser=multichainrpc", "-rpcpassword=SecurePass123!", "-rpcport=9541", "getinfo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  multichain-node3:
+    build:
+      context: .
+      dockerfile: Dockerfile.multichain
+    container_name: multichain-node3
+    hostname: node3
+    networks:
+      - multichain-net
+    ports:
+      - "9442:9442"
+      - "9542:9542"
+    volumes:
+      - ./data/node3:/root/.multichain
+    depends_on:
+      multichain-node1:
+        condition: service_healthy
+    command: >
+      sh -c "
+      sleep 5;
+      multichaind arbol-chain@multichain-node1:9440 -daemon=0 -port=9442 -rpcport=9542 -rpcallowip=0.0.0.0/0 -rpcuser=multichainrpc -rpcpassword=SecurePass123! -printtoconsole=1
+      "
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "multichain-cli", "arbol-chain", "-rpcuser=multichainrpc", "-rpcpassword=SecurePass123!", "-rpcport=9542", "getinfo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  multichain-node4:
+    build:
+      context: .
+      dockerfile: Dockerfile.multichain
+    container_name: multichain-node4
+    hostname: node4
+    networks:
+      - multichain-net
+    ports:
+      - "9443:9443"
+      - "9543:9543"
+    volumes:
+      - ./data/node4:/root/.multichain
+    depends_on:
+      multichain-node2:
+        condition: service_healthy
+    command: >
+      sh -c "
+      sleep 5;
+      multichaind arbol-chain@multichain-node2:9441 -daemon=0 -port=9443 -rpcport=9543 -rpcallowip=0.0.0.0/0 -rpcuser=multichainrpc -rpcpassword=SecurePass123! -printtoconsole=1
+      "
+    restart: unless-stopped
+
+  multichain-node5:
+    build:
+      context: .
+      dockerfile: Dockerfile.multichain
+    container_name: multichain-node5
+    hostname: node5
+    networks:
+      - multichain-net
+    ports:
+      - "9444:9444"
+      - "9544:9544"
+    volumes:
+      - ./data/node5:/root/.multichain
+    depends_on:
+      multichain-node2:
+        condition: service_healthy
+    command: >
+      sh -c "
+      sleep 5;
+      multichaind arbol-chain@multichain-node2:9441 -daemon=0 -port=9444 -rpcport=9544 -rpcallowip=0.0.0.0/0 -rpcuser=multichainrpc -rpcpassword=SecurePass123! -printtoconsole=1
+      "
+    restart: unless-stopped
+
+  web-panel:
+    build: ./web-panel
+    container_name: web-panel
+    hostname: web-panel
+    networks:
+      - multichain-net
+    ports:
+      - "3000:3000"
+    depends_on:
+      - multichain-node1
+    environment:
+      - WALLETS_ENV_PATH=/shared/wallets.env
+      - RPC_HOST=multichain-node1
+      - RPC_PORT=9540
+      - RPC_USER=multichainrpc
+      - RPC_PASSWORD=SecurePass123!
+    volumes:
+      - ./shared:/shared
+
+networks:
+  multichain-net:
+    driver: bridge
